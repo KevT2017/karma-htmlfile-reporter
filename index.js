@@ -10,7 +10,7 @@ var HTMLReporter = function(baseReporterDecorator, config, emitter, logger, help
   var groupSuites = config.htmlReporter.groupSuites || false;
   var useLegacyStyle = config.htmlReporter.useLegacyStyle || false;
   var useCompactStyle = config.htmlReporter.useCompactStyle || false;
-  var showOnlyFailed = config.htmlReporter.showOnlyFailed || false;  
+  var showOnlyFailed = config.htmlReporter.showOnlyFailed || false;
   var log = logger.create('reporter.html');
 
   var html;
@@ -62,7 +62,7 @@ var HTMLReporter = function(baseReporterDecorator, config, emitter, logger, help
     var header;
     var overview;
     var timestamp = (new Date()).toLocaleString();
-	  
+
     if (!suites) {
       self.onRunStart(browser);
     }
@@ -128,6 +128,8 @@ var HTMLReporter = function(baseReporterDecorator, config, emitter, logger, help
   this.onBrowserComplete = function(browser) {
     var suite = suites[browser.id];
     var result = browser.lastResult;
+    var timestamp = (new Date()).toLocaleString();
+    log.info('onBrowserComplete called\n\t' + timestamp);
 
     if (suite && suite['results']) {
       suite['results'].txt(result.total + ' tests / ');
@@ -201,70 +203,77 @@ var HTMLReporter = function(baseReporterDecorator, config, emitter, logger, help
   };
 
   this.specSuccess = this.specSkipped = this.specFailure = function(browser, result) {
-    var currentSuite = result.suite;
-	var suiteName = currentSuite.concat();
-    var currentSuiteName = currentSuite[0];
-	var isNewSuite = false;
-    var specClass = result.skipped ? 'skip' : (result.success ? 'pass' : 'fail');
-    var specStatus = result.skipped ? 'Skipped' : (result.success ? ('Passed in ' + ((result.time || 0) / 1000) + 's') : 'Failed');
-    var spec;
-    var specGroup;
-    var specHeader;
-    var specTitle;
-    var suiteColumn;
+    var timestamp = (new Date()).toLocaleString();
+    log.info('Spec callback called\n\t' + timestamp);
 
-    if (lastSuiteName !== currentSuiteName) {
-      isNewSuite = true;
-      lastSuiteName = currentSuiteName;
-    }
+    try {
+      var currentSuite = result.suite;
+    var suiteName = currentSuite.concat();
+      var currentSuiteName = currentSuite[0];
+    var isNewSuite = false;
+      var specClass = result.skipped ? 'skip' : (result.success ? 'pass' : 'fail');
+      var specStatus = result.skipped ? 'Skipped' : (result.success ? ('Passed in ' + ((result.time || 0) / 1000) + 's') : 'Failed');
+      var spec;
+      var specGroup;
+      var specHeader;
+      var specTitle;
+      var suiteColumn;
 
-    if (currentSuite.length > 1) {
-	  suiteName.shift();
-    }
+      if (lastSuiteName !== currentSuiteName) {
+        isNewSuite = true;
+        lastSuiteName = currentSuiteName;
+      }
 
-	if (!showOnlyFailed || (showOnlyFailed && !result.success)) {
-      if (useLegacyStyle) {
-        spec = suites[browser.id].ele('tr', {class:specClass});
-        spec.ele('td', {}, specStatus);
-        spec.ele('td', {}, result.description);
-        suiteColumn = spec.ele('td', {}).raw(currentSuite.join(' &raquo; '));
-      } else {
-        if (groupSuites && isNewSuite) {
-          specGroup = suites[browser.id].ele('div', {class: 'spec spec--group'});
-          specGroup.ele('h3', {class:'spec__header'}).raw(currentSuiteName);
+      if (currentSuite.length > 1) {
+      suiteName.shift();
+      }
+
+      if (!showOnlyFailed || (showOnlyFailed && !result.success)) {
+        if (useLegacyStyle) {
+          spec = suites[browser.id].ele('tr', {class:specClass});
+          spec.ele('td', {}, specStatus);
+          spec.ele('td', {}, result.description);
+          suiteColumn = spec.ele('td', {}).raw(currentSuite.join(' &raquo; '));
+        } else {
+          if (groupSuites && isNewSuite) {
+            specGroup = suites[browser.id].ele('div', {class: 'spec spec--group'});
+            specGroup.ele('h3', {class:'spec__header'}).raw(currentSuiteName);
+          }
+
+          spec = suites[browser.id].ele('div', {class: 'spec spec--' + specClass, style: (groupSuites ? ('margin-left:' + ((currentSuite.length - 1) * 20) + 'px;') : '')});
+
+          // Create spec header
+          specHeader = spec.ele('h3', {class:'spec__header'});
+
+          // Assemble the spec title
+          specTitle = specHeader.ele('div', {class:'spec__title'});
+          specTitle.ele('p', {class:'spec__suite' + (groupSuites ? ((suiteName[0] !== currentSuiteName || suiteName.length > 1) ? '' : ' hidden') : '')}).raw(suiteName.join(' &raquo; '));
+
+          specTitle.ele('em',  {class:'spec__descrip'}, result.description);
+
+          // Display spec result
+          specHeader.ele('div', {class:'spec__status'}, specStatus);
         }
-
-        spec = suites[browser.id].ele('div', {class: 'spec spec--' + specClass, style: (groupSuites ? ('margin-left:' + ((currentSuite.length - 1) * 20) + 'px;') : '')});
-
-        // Create spec header
-        specHeader = spec.ele('h3', {class:'spec__header'});
-
-        // Assemble the spec title
-        specTitle = specHeader.ele('div', {class:'spec__title'});
-        specTitle.ele('p', {class:'spec__suite' + (groupSuites ? ((suiteName[0] !== currentSuiteName || suiteName.length > 1) ? '' : ' hidden') : '')}).raw(suiteName.join(' &raquo; '));
-
-        specTitle.ele('em',  {class:'spec__descrip'}, result.description);
-
-        // Display spec result
-        specHeader.ele('div', {class:'spec__status'}, specStatus);
       }
-    }
 
-    if (!result.success) {
-      if (useLegacyStyle) {
-        result.log.forEach(function(err) {
-          suiteColumn.raw('<br />' + formatError(err).replace(/</g,'&lt;').replace(/>/g,'&gt;'));
-        });
-      } else {
-        // Error Messages
-        suiteColumn = spec.ele('p', {class:'spec__log'});
+      if (!result.success) {
+        if (useLegacyStyle) {
+          result.log.forEach(function(err) {
+            suiteColumn.raw('<br />' + formatError(err).replace(/</g,'&lt;').replace(/>/g,'&gt;'));
+          });
+        } else {
+          // Error Messages
+          suiteColumn = spec.ele('p', {class:'spec__log'});
 
-		result.log.forEach(function(err, index) {
-           var message = (index === 0) ? '' : '<br />';
-           message += formatError(err).replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/(?:\r\n|\r|\n)/g, '<br />');
-           suiteColumn.raw(message);
-        });
+          result.log.forEach(function(err, index) {
+            var message = (index === 0) ? '' : '<br />';
+            message += formatError(err).replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/(?:\r\n|\r|\n)/g, '<br />');
+            suiteColumn.raw(message);
+          });
+        }
       }
+    } catch(err) {
+      log.warn('Spec callback failed\n\t' + err.message);
     }
   };
 
